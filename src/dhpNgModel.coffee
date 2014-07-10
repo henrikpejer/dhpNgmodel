@@ -93,7 +93,7 @@ class ModelRequest
             params: params
             data: data
             cache: true
-            # transformRequest: @__transformRequest
+            transformRequest: @__transformRequest
             transformResponse: @__transformResponse
         })
         .success (data, status, headers, config)=>
