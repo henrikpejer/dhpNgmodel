@@ -1,0 +1,26 @@
+{
+  "name": "dhpNgModel",
+  "private": true,
+  "version": "0.0.1",
+  "description": "My own little ng model",
+  "scripts": {
+    "build": "grunt build",
+    "watch": "grunt build && grunt watch",
+    "test": "karma start tests/karma.conf.js",
+    "testcoverage": "grunt build;karma start tests/karma.coverage.conf.js --single-run"
+  },
+  "devDependencies": {
+    "grunt-contrib-coffee": "^0.10.1",
+    "http-server": "^0.6.1",
+    "jasmine-growl-reporter": "^0.2.1",
+    "karma": "^0.12.16",
+    "karma-chrome-launcher": "^0.1.3",
+    "karma-coffee-preprocessor": "^0.2.1",
+    "karma-coverage": "^0.2.1",
+    "karma-firefox-launcher": "^0.1.3",
+    "karma-jasmine": "^0.1.5",
+    "karma-junit-reporter": "^0.2.2",
+    "protractor": "^0.22.0",
+    "shelljs": "^0.3.0"
+  }
+}
