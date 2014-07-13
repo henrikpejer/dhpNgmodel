@@ -24,6 +24,12 @@ angular.module("dhpNgModel").factory("modelItem", ['Request', (Request)->
     modelItemFn
 ])
 
+angular.module("dhpNgModel").factory("ModelItemIndexDb", ['Request', (Request)->
+    modelItemFn = (model, data, Request, config = null)->
+        new ModelItemIndexDb(model, data, Request, config)
+    modelItemFn
+])
+
 angular.module("dhpNgModel").service("Request", ['$http', '$q', 'BASE_URL', ($http, $q, BASE_URL)->
     new ModelRequest($http, $q, BASE_URL)
 ])
@@ -43,7 +49,7 @@ class Model
         @request.get(@, id).then(
             (data)=>
                 parsedData = @__parseResponse(data)
-                d.resolve(new ModelItem(@,parsedData,@request))
+                d.resolve(new ModelItem(@, parsedData, @request))
             (reason)=>
                 d.reject(reason)
         )
@@ -124,7 +130,52 @@ class ModelRequest
     __errorRequest: (deferred, data, status, headers, config)->
         deferred.reject status
 
-class ModelIndexdb
-    constructor: (@namespace, @version = 1)->
-    get: (table, id)->
-    filter: (table, filters)->
+
+###
+    Exends modelItem with indexDb methods
+
+    This should create an object that encapsulates the data we want to save
+    so we have values that say if it has been saved to the database...?
+
+    dbtable: objects
+    key: uuid
+    data: {
+        data: {
+            <actuall data of object>
+        }
+        savedToDatabase: if this is saved to database or not
+    }
+
+    dbtable: dbobj
+    key: modelName/objectId
+    data: {
+        uuid: uuid
+    }
+
+    this table connects uri to uuid. Used for looking up uri to local data and make sure we should use indexdb or not
+
+###
+class ModelItemIndexDb extends ModelItem
+    constructor: ()->
+        super
+    $delete: ()-> # remove from indexedDb?
+        super
+    $update: ()->   # update, set savedtodb on success
+        super
+    $save: ()-> # save, set savedtodb on success
+        super
+    $getData: ()-> # get, set savedtodb on success
+        super
+    $isDeleted: ()->
+        @deleted
+    createUUID: ()->
+        # from http://bit.ly/HkAnFi
+        # http://www.ietf.org/rfc/rfc4122.txt
+        s = []
+        hexDigits = "0123456789abcdef";
+        for i in [0..35]
+            s[i] = hexDigits.substr(Math.floor(Math.random() * 0x10), 1)
+        s[14] = "4" # bits 12-15 of the time_hi_and_version field to 0010
+        s[19] = hexDigits.substr((s[19] & 0x3) | 0x8, 1) # bits 6-7 of the clock_seq_hi_and_reserved to 01
+        s[8] = s[13] = s[18] = s[23] = "-"
+        s.join("");
