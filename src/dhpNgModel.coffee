@@ -118,16 +118,16 @@ class ModelRequest
             ret = ret.substr(0, (ret.length - 1)) + ']'
             return ret
         id
-    __transformRequest: (data, headers)->
+    __transformRequest: (data)-> # , headers
         data
-    __transformResponse: (data, headers)->
+    __transformResponse: (data)-> # , headers
         try
             jsonAttempt = angular.fromJson(data)
             return jsonAttempt
         data
-    __successRequest: (deferred, data, status, headers, config)->
+    __successRequest: (deferred, data)-> # , status, headers, config
         deferred.resolve data
-    __errorRequest: (deferred, data, status, headers, config)->
+    __errorRequest: (deferred, data, status)-> # , headers, config
         deferred.reject status
 
 
@@ -153,7 +153,6 @@ class ModelRequest
     }
 
     this table connects uri to uuid. Used for looking up uri to local data and make sure we should use indexdb or not
-
 ###
 class ModelItemIndexDb extends ModelItem
     constructor: ()->
