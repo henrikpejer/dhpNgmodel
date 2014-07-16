@@ -54,12 +54,12 @@ class Model
                 d.reject(reason)
         )
         d.promise
+    new: (data = {})->
+        new ModelItem(@,data, @request)
 
 class ModelItem
-    constructor: (@$model, data, @$request, config = {"idField": "id"})->
-        angular.extend @, data
-        @$id = data[config["idField"]]
-        @$deleted = false;
+    constructor: (@$model, data, @$request, @$config = {"idField": "id"})->
+        @$setData data
     $delete: ()->
         @$request.delete(@$model, @$id).then(()=>
             @$deleted = true
@@ -69,9 +69,15 @@ class ModelItem
         angular.extend @, data
         @$save()
     $save: ()->
-        @$request.post(@$model, @$id, @).then(()=>
-            @$deleted = false
+        @$request.post(@$model, @$id, @).then((data)=>
+            @$setData data
         )
+        @
+    $setData: (data)->
+        angular.extend @, data
+        if data? and data[@$config["idField"]]?
+            @$id = data[@$config["idField"]]
+        @$deleted = false;
         @
     $isDeleted: ()->
         @$deleted
