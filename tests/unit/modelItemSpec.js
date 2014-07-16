@@ -26,16 +26,16 @@ describe('service', function() {
         it('should update the data', inject(function(modelItem, model, $httpBackend, Request) {
             var d = modelItem(model('user'),{"id":1, "name": "Henrik Pejer"},Request);
 
-            $httpBackend.expectPOST('/user/1',{"id":1, "name": "Henrik Pejer"}).respond(200, 'postData');
+            $httpBackend.expectPOST('/user/1',{"id":1, "name": "Henrik Pejer"}).respond(200);
             d.$save();
             $httpBackend.flush();
 
-            $httpBackend.expectPOST('/user/1',{"id":1, "name": "Henrik"}).respond(200, 'postData');
+            $httpBackend.expectPOST('/user/1',{"id":1, "name": "Henrik"}).respond(200);
             d.$update({"name":"Henrik"});
             $httpBackend.flush();
         }));
         it('should update the data', inject(function(Request, modelItem, model, $httpBackend) {
-            $httpBackend.expectPOST('/user/1').respond(200, 'postData');
+            $httpBackend.expectPOST('/user/1').respond(200);
             modelItem(model('user'),{"id":1, "name": "Henrik Pejer"},Request,{"idField": "id"}).$update({"name":"Henke"})
             $httpBackend.flush();
         }));

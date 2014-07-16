@@ -36,5 +36,16 @@ describe('service', function() {
             expect(result.something).toEqual('Result for model get method without parameters');
         }));
 
+        it('should return a model-instance when new is called',inject(function(model, $http, $httpBackend){
+            var g = model('user').new({"name":"Henrik Pejer"});
+            expect(g.name).toEqual("Henrik Pejer");
+            $httpBackend.expectPOST('/user/').respond(200,{id:1,name: "Henrik Pejer"});
+            g.$save();
+            $httpBackend.flush();
+            expect(g.id).toEqual(1);
+            $httpBackend.expectPOST('/user/1').respond(200,{id:1,name: "Henrik Pejer"});
+            g.$save();
+            $httpBackend.flush();
+        }));
     });
 });
