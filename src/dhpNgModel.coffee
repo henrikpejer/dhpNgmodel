@@ -62,10 +62,10 @@ class Model
         )
         d.promise
     new: (data = {})->
-        new ModelItem(@,data, @request)
+        new ModelItem @, data, @request
 
 class ModelItem
-    constructor: (@$model, data, @$request, @$config = {"idField": "id"})->
+    constructor: (@$model, data = {}, @$request, @$config = {"idField": "id"})->
         @$setData data
     $delete: ()->
         @$request.delete(@$model, @$id).then(()=>
