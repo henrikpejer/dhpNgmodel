@@ -120,7 +120,6 @@ class ModelRequest
             return ret
         id
     __transformRequest: (data)-> # , headers
-        console.log "data to send is", data
         data
     __transformResponse: (data)-> # , headers
         try
