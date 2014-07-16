@@ -13,8 +13,15 @@
 
 angular.module("dhpNgModel", ['dhpNgModelConfiguration']);
 angular.module("dhpNgModel").factory("model", ['Request', '$q', (Request, $q)->
+    modelCache = {}
     modelFn = (model)->
-        new Model(model, Request, $q)
+        ret = null
+        if modelCache[model]?
+            ret = modelCache[model]
+        else
+            ret = new Model(model, Request, $q)
+            modelCache[model] = ret
+        ret
     modelFn
 ])
 
