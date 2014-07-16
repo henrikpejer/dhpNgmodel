@@ -19,8 +19,9 @@ describe('service', function() {
         }));
         it('should have the correct data', inject(function(modelItem, model, Request) {
             var d = modelItem(model('user'),{"id":1, "name": "Henrik"}, Request);
-            expect(d.$getData()).toEqual({"id":1, "name": "Henrik"});
-            expect(d.$update({"name":"Henrik Pejer"}).$getData()).toEqual({"id":1, "name": "Henrik Pejer"});
+            expect(d.id).toEqual(1);
+            expect(d.name).toEqual("Henrik");
+            expect(d.$update({"name":"Henrik Pejer"}).name).toEqual("Henrik Pejer");
         }));
         it('should update the data', inject(function(modelItem, model, $httpBackend, Request) {
             var d = modelItem(model('user'),{"id":1, "name": "Henrik Pejer"},Request);

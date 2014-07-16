@@ -56,26 +56,25 @@ class Model
         d.promise
 
 class ModelItem
-    constructor: (@model, @data, @request, @config = {"idField": "id"})->
-        @id = @data[@config["idField"]]
-        @deleted = false;
+    constructor: (@$model, data, @$request, config = {"idField": "id"})->
+        angular.extend @, data
+        @$id = data[config["idField"]]
+        @$deleted = false;
     $delete: ()->
-        @request.delete(@model, @id).then(()=>
-            @deleted = true
+        @$request.delete(@$model, @$id).then(()=>
+            @$deleted = true
         )
         @
     $update: (data)->
-        angular.extend @data, data
+        angular.extend @, data
         @$save()
     $save: ()->
-        @request.post(@model, @id, @data).then(()=>
-            @deleted = false
+        @$request.post(@$model, @$id, @).then(()=>
+            @$deleted = false
         )
         @
-    $getData: ()->
-        @data
     $isDeleted: ()->
-        @deleted
+        @$deleted
 
 class ModelRequest
     config:
@@ -97,7 +96,7 @@ class ModelRequest
             url: @config.baseUrl + url
             method: method
             params: params
-            data: data
+            data: @__sanitizeData data
             cache: true
             transformRequest: @__transformRequest
             transformResponse: @__transformResponse
@@ -107,6 +106,8 @@ class ModelRequest
         .error (data, status, headers, config)=>
                 @__errorRequest(deferred, data, status, headers, config)
         deferred.promise
+    __sanitizeData: (data)->
+        angular.toJson data
     __parseId: (id)->
         if !id?
             id = ''
@@ -119,6 +120,7 @@ class ModelRequest
             return ret
         id
     __transformRequest: (data)-> # , headers
+        console.log "data to send is", data
         data
     __transformResponse: (data)-> # , headers
         try
@@ -166,7 +168,7 @@ class ModelItemIndexDb extends ModelItem
     $getData: ()-> # get, set savedtodb on success
         super
     $isDeleted: ()->
-        @deleted
+        super
     createUUID: ()->
         # from http://bit.ly/HkAnFi
         # http://www.ietf.org/rfc/rfc4122.txt

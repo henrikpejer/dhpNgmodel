@@ -23,17 +23,17 @@ describe('service', function() {
                 result = d;
             });
             $httpBackend.flush();
-            expect(result.data).toEqual({"user":"Henrik Pejer"});
+            expect(result.user).toEqual("Henrik Pejer");
         }));
 
         it('should make a get request without parameters when no id is supplied', inject(function(model, $http, $httpBackend) {
-            $httpBackend.expectGET('/user/').respond(200,'Result for model get method without parameters');
+            $httpBackend.expectGET('/user/').respond(200,{"something":'Result for model get method without parameters'});
             var result = null;
             model('user').get().then(function(d){
                 result = d;
             });
             $httpBackend.flush();
-            expect(result.data).toEqual('Result for model get method without parameters');
+            expect(result.something).toEqual('Result for model get method without parameters');
         }));
 
     });
