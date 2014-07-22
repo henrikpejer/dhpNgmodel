@@ -25,17 +25,39 @@ describe('service', function() {
             $httpBackend.flush();
             expect(result.user).toEqual("Henrik Pejer");
         }));
-
         it('should make a get request without parameters when no id is supplied', inject(function(model, $http, $httpBackend) {
-            $httpBackend.expectGET('/user/').respond(200,{"something":'Result for model get method without parameters'});
+            $httpBackend.expectGET('/user/1').respond(200, {"meta":{"models":{"user":{"url":"/user/:id"}}}, "data": {"user":[{"id": 1,"name": "Henrik"}]}});
             var result = null;
-            model('user').get().then(function(d){
-                result = d;
+            model('user').get(1).then(function(d){
+                result = d.user;
             });
             $httpBackend.flush();
-            expect(result.something).toEqual('Result for model get method without parameters');
+            expect(result[0].name).toEqual('Henrik');
+            $httpBackend.expectPOST('/user/1').respond(200);
+            result[0].$save();
+            $httpBackend.flush();
         }));
+        it('',inject(function(model, $http, $httpBackend){
+            $httpBackend.expectGET('/user/').respond(200, {"meta":{"models":{"user":{"url":"/user/:id"}}}, "data": {"user":[{"id": 1,"name": "Henrik"},{"id": 2,"name": "Magnus"}],"post":[{"id":2,"title":"First post"}]}})
+            var user1, user2, post1 = null;
+            model('user').get().then(function(d){
+               user1 = d.user[0];
+               user2 = d.user[1];
+               post1 = d.post[0];
+            });
+            $httpBackend.flush();
+            expect(user1.name).toEqual('Henrik');
+            expect(user2.name).toEqual('Magnus');
+            expect(post1.title).toEqual('First post');
 
+            $httpBackend.expectPOST('/post/2').respond(200);
+            $httpBackend.expectPOST('/user/1').respond(200);
+            $httpBackend.expectPOST('/user/2').respond(200);
+            post1.$save();
+            user1.$save();
+            user2.$save();
+            $httpBackend.flush();
+        }));
         it('should return a model-instance when new is called',inject(function(model, $http, $httpBackend){
             var g = model('user').new({"name":"Henrik Pejer"});
             expect(g.name).toEqual("Henrik Pejer");

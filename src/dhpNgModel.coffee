@@ -8,7 +8,6 @@
     user.update({name:values})....
 
     return should be a promise that will be populated once the return data is complete
-
 ###
 
 angular.module("dhpNgModel", ['dhpNgModelConfiguration']);
@@ -56,7 +55,16 @@ class Model
         @request.get(@, id).then(
             (data)=>
                 parsedData = @__parseResponse(data)
-                d.resolve(new ModelItem(@, parsedData, @request))
+                if parsedData.meta? && parsedData.data?
+                    returnData = {}
+                    for modelName, modelData of parsedData.data
+                        returnData[modelName] = []
+                        for data in modelData
+                            # todo : gotta find a more eligant solution to the new Model problem
+                            returnData[modelName].push(new ModelItem(new Model(modelName, @request, @q), data, @request))
+                else
+                    returnData = parsedData
+                d.resolve(returnData)
             (reason)=>
                 d.reject(reason)
         )
