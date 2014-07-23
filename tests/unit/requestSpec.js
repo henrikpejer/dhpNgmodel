@@ -62,7 +62,7 @@ describe('service', function () {
             var model = model('user');
             var result = null;
             $httpBackend.expectGET('/user/').respond(200, 'default request data');
-            Request.__request('user/').then(function(d){
+            Request.__request(model).then(function(d){
                 result = d;
             });
             $httpBackend.flush();

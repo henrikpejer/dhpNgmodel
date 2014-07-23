@@ -25,14 +25,14 @@ angular.module("dhpNgModel").factory("model", ['Request', '$q', (Request, $q)->
 ])
 
 angular.module("dhpNgModel").factory("modelItem", ['Request', (Request)->
-    modelItemFn = (model, data, Request, config = null)->
-        new ModelItem(model, data, Request, config)
+    modelItemFn = (model, Request, data, config = null)->
+        new ModelItem(model, Request, data, config)
     modelItemFn
 ])
 
 angular.module("dhpNgModel").factory("ModelItemIndexDb", ['Request', (Request)->
-    modelItemFn = (model, data, Request, config = null)->
-        new ModelItemIndexDb(model, data, Request, config)
+    modelItemFn = (model, Request, data, config = null)->
+        new ModelItemIndexDb(model, Request, data, config)
     modelItemFn
 ])
 
@@ -40,6 +40,97 @@ angular.module("dhpNgModel").service("Request", ['$http', '$q', 'BASE_URL', ($ht
     new ModelRequest($http, $q, BASE_URL)
 ])
 
+# todo : implement clever error handling for these!
+# todo : implement promises for these!
+angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
+    dbToOpen = "dhpNgModelStore"
+    version = 1
+    db = null
+    setUp = false
+    stores = {
+    "urlIndex":
+        schema:
+            autoIncrement:true
+        indexes:
+            "url": [
+                "url",
+                {unique:true}
+            ]
+    "dataStore":
+        schema:
+            unique:true
+
+    }
+    # todo: fetch the hash of the data object we want
+    # todo: fetch the object we want
+    get = (key)->
+        if key.indexOf('/') is -1
+            console.log "get Data object"
+        else
+            console.log "get URL"
+    deleteItem = (url)->
+        connect().then(
+          ()->
+              transaction = db.transaction ['urlIndex'], "readwrite"
+              transaction.objectStore('urlIndex').delete(url)
+        );
+    insert = (url, data)->
+        connect().then(
+            ()->
+                transaction = db.transaction ['urlIndex'], "readwrite"
+                uuid = UUID();
+                transaction.objectStore("urlIndex").add(uuid, url)
+
+                transaction = db.transaction ['dataStore'], "readwrite"
+                transaction.objectStore("dataStore").add(data,uuid)
+
+        );
+    UUID = ()->
+        # from http://bit.ly/HkAnFi
+        # http://www.ietf.org/rfc/rfc4122.txt
+        s = []
+        hexDigits = "0123456789abcdef";
+        for i in [0..35]
+            s[i] = hexDigits.substr(Math.floor(Math.random() * 0x10), 1)
+        s[14] = "4" # bits 12-15 of the time_hi_and_version field to 0010
+        s[19] = hexDigits.substr((s[19] & 0x3) | 0x8, 1) # bits 6-7 of the clock_seq_hi_and_reserved to 01
+        s[8] = s[13] = s[18] = s[23] = "-"
+        s.join("");
+    connect = ()->
+        deferred = $q.defer()
+        if setUp is true
+            deferred.resolve true
+            console.log "already set up"
+            return deferred.promise
+        openRequest = window.indexedDB.open(dbToOpen, version)
+        openRequest.onupgradeneeded = (event)->
+            console.log "upgrade needed"
+            thisdb = event.target.result
+            # check for versions... or not?
+            for indexName, indexData of stores
+                console.log indexName
+                if indexData.schema?
+                    obStore = thisdb.createObjectStore indexName, indexData.schema
+                if indexData.indexes?
+                    for indexName, indexData in indexData.indexes
+                        obStore.createIndex indexName, indexData[0], indexData[1]
+        openRequest.onblocked = (event)->
+            console.log "blocked"
+        openRequest.onsuccess = (event)->
+            db = event.target.result
+            db.onerror = (event)->
+                console.log "Error!", event
+                deferred.reject "Database error: " + event.target.errorCode
+            setUp = true
+            deferred.resolve true
+        deferred.resolve true
+        deferred.promise
+    {
+        insert:insert
+        delete:deleteItem
+        get:get
+    }
+])
 class Model
     constructor: (@model, @request, @$q)->
     find: ()->
@@ -61,7 +152,12 @@ class Model
                         returnData[modelName] = []
                         for data in modelData
                             # todo : gotta find a more eligant solution to the new Model problem
-                            returnData[modelName].push(new ModelItem(new Model(modelName, @request, @q), data, @request))
+                            if window.indexedDB
+                                returnData[modelName].push(new ModelItemIndexDb(new Model(modelName, @request, @q),
+                                  @request, data))
+                            else
+                                returnData[modelName].push(new ModelItem(new Model(modelName, @request, @q), @request,
+                                  data))
                 else
                     returnData = parsedData
                 d.resolve(returnData)
@@ -70,10 +166,10 @@ class Model
         )
         d.promise
     new: (data = {})->
-        new ModelItem @, data, @request
+        new ModelItem @, @request, data
 
 class ModelItem
-    constructor: (@$model, data = {}, @$request, @$config = {"idField": "id"})->
+    constructor: (@$model, @$request, data = {}, @$config = {"idField": "id"})->
         @$setData data
     $delete: ()->
         @$request.delete(@$model, @$id).then(()=>
@@ -84,6 +180,8 @@ class ModelItem
         angular.extend @, data
         @$save()
     $save: ()->
+        # check... if we have a idField set ? and use that as $id?
+        @$checkForId()
         @$request.post(@$model, @$id, @).then((data)=>
             @$setData data
         )
@@ -96,6 +194,9 @@ class ModelItem
         @
     $isDeleted: ()->
         @$deleted
+    $checkForId: ()->
+        if !@$id? && @id
+            @$id = @id
 
 class ModelRequest
     config:
@@ -104,15 +205,17 @@ class ModelRequest
     constructor: (@$http, @$q, base_url)->
         @config.baseUrl = base_url
     get: (model, id, params = null)->
-        @__request(model.getModel() + '/' + @__parseId(id), 'GET', params)
+        @__request(model, id, 'GET', params)
     post: (model, id, data, params = null)->
-        @__request(model.getModel() + '/' + @__parseId(id), 'POST', params, data)
+        @__request(model, id, 'POST', params, data)
     put: (model, id, data)->
-        @__request(model.getModel() + '/' + @__parseId(id), 'PUT', null, data)
+        @__request(model, id, 'PUT', null, data)
     delete: (model, id)->
-        @__request(model.getModel() + '/' + @__parseId(id), 'DELETE')
-    __request: (url, method = 'GET', params = null, data = null)->
+        @__request(model, id, 'DELETE')
+    __request: (model, id, method = 'GET', params = null, data = null)->
+        # todo: check with indexed db storage to see if we have something that is requested - then we can use indexedDB data instead
         deferred = @$q.defer();
+        url = model.getModel() + '/' + @__parseId(id)
         @$http({
             url: @config.baseUrl + url
             method: method
@@ -185,11 +288,11 @@ class ModelItemIndexDb extends ModelItem
         super
     $save: ()-> # save, set savedtodb on success
         super
-    $getData: ()-> # get, set savedtodb on success
-        super
+    #$getData: ()-> # get, set savedtodb on success
+    #    super
     $isDeleted: ()->
         super
-    createUUID: ()->
+    $createUUID: ()->
         # from http://bit.ly/HkAnFi
         # http://www.ietf.org/rfc/rfc4122.txt
         s = []
@@ -200,3 +303,76 @@ class ModelItemIndexDb extends ModelItem
         s[19] = hexDigits.substr((s[19] & 0x3) | 0x8, 1) # bits 6-7 of the clock_seq_hi_and_reserved to 01
         s[8] = s[13] = s[18] = s[23] = "-"
         s.join("");
+
+###
+    This class should act as a slightly easier object to handle indexedDB
+###
+class indexedDb
+    stores: {
+        "urlIndex":
+            schema:
+                autoIncrement:true
+            indexes:
+                "url": [
+                    "url",
+                    {unique:true}
+                ]
+        "dataStore":
+            schema:
+                unique:true
+
+    }
+    constructor: (@$q, @dbToOpen,@version = 1)->
+        # @connect()
+    delete: ()->
+        window.indexedDB.deleteDatabase(@dbToOpen)
+
+    insert: (url, data)->
+        console.log @connect().then(
+            (data)=>
+                console.log "success"
+            (reason)=>
+                console.log "error"
+            ()=>
+                console.log "notify"
+        )
+    UUID: ()->
+        # from http://bit.ly/HkAnFi
+        # http://www.ietf.org/rfc/rfc4122.txt
+        s = []
+        hexDigits = "0123456789abcdef";
+        for i in [0..35]
+            s[i] = hexDigits.substr(Math.floor(Math.random() * 0x10), 1)
+        s[14] = "4" # bits 12-15 of the time_hi_and_version field to 0010
+        s[19] = hexDigits.substr((s[19] & 0x3) | 0x8, 1) # bits 6-7 of the clock_seq_hi_and_reserved to 01
+        s[8] = s[13] = s[18] = s[23] = "-"
+        s.join("");
+
+    connect: ()=>
+        deferred = @$q.defer()
+        console.log "connecting..."
+        openRequest = window.indexedDB.open(@dbToOpen, @version)
+        openRequest.onsuccess = (event)->
+            db = openRequest.result
+            db.onversionchange = (e)->
+                console.log "version change", db
+                db.close()
+            console.log "connected ok"
+            deferred.resolve true
+            true
+        openRequest.onupgradeneeded = (e)->
+            console.log "Upgrade needed", e
+            db = openRequest.result
+            # check for versions... or not?
+            for indexName, indexData of @stores
+                if indexData.schema?
+                    obStore = db.createObjectStore indexName, indexData.schema
+                if indexData.indexes?
+                    for indexName, indexData in indexData.indexes
+                        obStore.createIndex indexName, indexData[0], indexData[1]
+            deferred.resolve true
+            true
+        openRequest.onblocked = (e)->
+            console.log "blocked"
+            true
+        return deferred.promise

@@ -68,6 +68,40 @@ describe('service', function() {
             $httpBackend.expectPOST('/user/1').respond(200,{id:1,name: "Henrik Pejer"});
             g.$save();
             $httpBackend.flush();
+            var d = model('user').new();
+            expect(d.name).toEqual(null);
+            d.name = 'Henrik';
+            expect(d.name).toEqual('Henrik');
+            d.$save();
+            $httpBackend.expectPOST('/user/').respond(200,{id:99,name: "Henrik"});
+            $httpBackend.flush();
+        }));
+        it('should handle erroneous responses',inject(function(model, $http, $httpBackend){
+            $httpBackend.expectGET('/user/').respond(400);
+            var result = null;
+            model('user').get().then(
+                function(){
+                    result = 'success';
+                },
+                function(){
+                    result = 'error';
+                }
+            );
+            $httpBackend.flush();
+            expect(result).toEqual('error');
+        }));
+        it('should create a new model with empty data when no data is provided',inject(function(model, $http, $httpBackend){
+            var user = model('user').new();
+            expect(angular.toJson(user)).toEqual('{}');
+            user.name = 'Henrik';
+            user.id=99;
+            expect(angular.toJson(user)).toEqual('{"name":"Henrik","id":99}');
+            $httpBackend.expectPOST('/user/99').respond(200,{"id":99,"name":"Henrik"});
+            user.$save();
+            $httpBackend.flush();
+            $httpBackend.expectPOST('/user/99').respond(200,{"id":99,"name":"Henrik"});
+            user.$save();
+            $httpBackend.flush();
         }));
     });
 });
