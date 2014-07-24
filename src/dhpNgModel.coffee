@@ -99,6 +99,7 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
               transaction.objectStore('urlIndex').delete(url)
         );
     insert = (url, data)->
+        deferred = $q.defer()
         connect().then(
             ()->
                 transaction = db.transaction ['urlIndex'], "readwrite"
@@ -107,8 +108,9 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
 
                 transaction = db.transaction ['dataStore'], "readwrite"
                 transaction.objectStore("dataStore").add(data,uuid)
-
+                deferred.resolve uuid
         );
+        deferred.promise
     UUID = ()->
         # from http://bit.ly/HkAnFi
         # http://www.ietf.org/rfc/rfc4122.txt

@@ -16,20 +16,26 @@ describe('service', function () {
                 "id": 1,
                 "name": "Henrik Pejer"
             }
-            var something;
+            var savedPost;
+            var uuidPost;
             var post;
+            var uuid;
             runs(function(){
                 indexedDB.close();
-                indexedDB.insert('user/1', o);
+                indexedDB.insert('user/1', o).then(function(d){
+                    uuid = d;
+                });
                 setTimeout(function(){
                     $rootScope.$apply();
-
                     var openRequest = window.indexedDB.open("dhpNgModelStore");
                     openRequest.onsuccess = function(){
                         var db = openRequest.result;
-                        something = db.objectStoreNames;
+                        savedPost = db.objectStoreNames;
                         indexedDB.get('user/1').then(function(d){
                             post = d;
+                        });
+                        indexedDB.get(uuid).then(function(d){
+                            uuidPost = d;
                         });
                         setTimeout(function(){
                             $rootScope.$apply();
@@ -54,11 +60,13 @@ describe('service', function () {
                 ,"Error - $rootScope.$apply didn't run properly",3000
             );
             runs(function(){
-                expect(something[0]).toBe("dataStore");
-                expect(something[1]).toBe("urlIndex");
+                expect(savedPost[0]).toBe("dataStore");
+                expect(savedPost[1]).toBe("urlIndex");
                 expect(post.id).toBe(1);
                 expect(post.name).toBe("Henrik Pejer");
-
+                expect(uuidPost.id).toBe(1);
+                expect(uuidPost.name).toBe("Henrik Pejer");
+                expect(uuidPost).toEqual(post);
             })
         }));
         it('should fetch from correct store depending on key',inject(function(indexedDB, $rootScope){
