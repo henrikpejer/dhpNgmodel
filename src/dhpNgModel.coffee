@@ -80,7 +80,7 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
 
     getItem = (key, storeName)->
         deferred = $q.defer()
-        connect().then(()->
+        connect().then ()->
             transaction = db.transaction [storeName], "readwrite"
             OS = transaction.objectStore storeName
             res = OS.get(key)
@@ -89,17 +89,16 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
 
             res.onerror = (event)->
                 deferred.reject event
-        )
+
         deferred.promise
     close = ()->
         if setUp is true
             db.close()
     deleteItem = (url)->
-        connect().then(
-          ()->
-              transaction = db.transaction ['urlIndex'], "readwrite"
-              transaction.objectStore('urlIndex').delete(url)
-        );
+        connect().then ()->
+            transaction = db.transaction ['urlIndex'], "readwrite"
+            transaction.objectStore('urlIndex').delete(url)
+
     insert = (url, data)->
         deferred = $q.defer()
         connect().then(
@@ -151,10 +150,10 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
         deferred.resolve true
         deferred.promise
     {
-        insert:insert
-        delete:deleteItem
-        get:get
-        close:close
+    insert: insert
+    delete: deleteItem
+    get: get
+    close: close
     }
 ])
 class Model

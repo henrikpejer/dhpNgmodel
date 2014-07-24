@@ -48,7 +48,6 @@ describe('service', function () {
                             }, 100)
                         }, 100)
                     }
-
                     openRequest.onerror = function(){
                         con = true;
                     }
