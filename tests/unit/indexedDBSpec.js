@@ -10,7 +10,7 @@ describe('service', function () {
     });
 
     describe('indexedDB', function () {
-        iit('should save the correct value', inject(function (indexedDB, $rootScope) {
+        it('should save the correct value', inject(function (indexedDB, $rootScope) {
             var con = false;
             var o = {
                 "id": 1,
@@ -41,7 +41,10 @@ describe('service', function () {
                             $rootScope.$apply();
                             setTimeout(function(){
                                 $rootScope.$apply();
-                                con = true;
+                                setTimeout(function(){
+                                    $rootScope.$apply();
+                                    con = true;
+                                }, 100)
                             }, 100)
                         }, 100)
                     }
@@ -69,10 +72,10 @@ describe('service', function () {
                 expect(uuidPost).toEqual(post);
             })
         }));
-        it('should fetch from correct store depending on key',inject(function(indexedDB, $rootScope){
+        /*it('should fetch from correct store depending on key',inject(function(indexedDB, $rootScope){
             indexedDB.get('user/1');
             indexedDB.get('620a4517-caff-4b5a-a662-a8ef8f3a7317');
-        }));
+        }));*/
         /*it('should save the correct value', inject(function (indexedDB, $rootScope) {
             var con = false;
             var o = {

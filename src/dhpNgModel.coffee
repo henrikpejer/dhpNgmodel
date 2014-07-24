@@ -80,14 +80,16 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
 
     getItem = (key, storeName)->
         deferred = $q.defer()
-        transaction = db.transaction [storeName], "readwrite"
-        OS = transaction.objectStore storeName
-        res = OS.get(key)
-        res.onsuccess = (event)->
-            deferred.resolve res.result
+        connect().then(()->
+            transaction = db.transaction [storeName], "readwrite"
+            OS = transaction.objectStore storeName
+            res = OS.get(key)
+            res.onsuccess = (event)->
+                deferred.resolve res.result
 
-        res.onerror = (event)->
-            deferred.reject event
+            res.onerror = (event)->
+                deferred.reject event
+        )
         deferred.promise
     close = ()->
         if setUp is true
@@ -327,76 +329,3 @@ class ModelItemIndexDb extends ModelItem
         s[19] = hexDigits.substr((s[19] & 0x3) | 0x8, 1) # bits 6-7 of the clock_seq_hi_and_reserved to 01
         s[8] = s[13] = s[18] = s[23] = "-"
         s.join("");
-
-###
-    This class should act as a slightly easier object to handle indexedDB
-###
-class indexedDb
-    stores: {
-        "urlIndex":
-            schema:
-                autoIncrement:true
-            indexes:
-                "url": [
-                    "url",
-                    {unique:true}
-                ]
-        "dataStore":
-            schema:
-                unique:true
-
-    }
-    constructor: (@$q, @dbToOpen,@version = 1)->
-        # @connect()
-    delete: ()->
-        window.indexedDB.deleteDatabase(@dbToOpen)
-
-    insert: (url, data)->
-        console.log @connect().then(
-            (data)=>
-                console.log "success"
-            (reason)=>
-                console.log "error"
-            ()=>
-                console.log "notify"
-        )
-    UUID: ()->
-        # from http://bit.ly/HkAnFi
-        # http://www.ietf.org/rfc/rfc4122.txt
-        s = []
-        hexDigits = "0123456789abcdef";
-        for i in [0..35]
-            s[i] = hexDigits.substr(Math.floor(Math.random() * 0x10), 1)
-        s[14] = "4" # bits 12-15 of the time_hi_and_version field to 0010
-        s[19] = hexDigits.substr((s[19] & 0x3) | 0x8, 1) # bits 6-7 of the clock_seq_hi_and_reserved to 01
-        s[8] = s[13] = s[18] = s[23] = "-"
-        s.join("");
-
-    connect: ()=>
-        deferred = @$q.defer()
-        console.log "connecting..."
-        openRequest = window.indexedDB.open(@dbToOpen, @version)
-        openRequest.onsuccess = (event)->
-            db = openRequest.result
-            db.onversionchange = (e)->
-                console.log "version change", db
-                db.close()
-            console.log "connected ok"
-            deferred.resolve true
-            true
-        openRequest.onupgradeneeded = (e)->
-            console.log "Upgrade needed", e
-            db = openRequest.result
-            # check for versions... or not?
-            for indexName, indexData of @stores
-                if indexData.schema?
-                    obStore = db.createObjectStore indexName, indexData.schema
-                if indexData.indexes?
-                    for indexName, indexData in indexData.indexes
-                        obStore.createIndex indexName, indexData[0], indexData[1]
-            deferred.resolve true
-            true
-        openRequest.onblocked = (e)->
-            console.log "blocked"
-            true
-        return deferred.promise
