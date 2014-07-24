@@ -61,13 +61,37 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
             unique:true
 
     }
-    # todo: fetch the hash of the data object we want
-    # todo: fetch the object we want
     get = (key)->
+        deferred = $q.defer()
         if key.indexOf('/') is -1
-            console.log "get Data object"
+            getItem(key,'dataStore').then(
+                (d)->
+                    deferred.resolve d
+            );
         else
-            console.log "get URL"
+            getItem(key,'urlIndex').then(
+                (d)->
+                    getItem(d, 'dataStore').then(
+                      (d)->
+                          deferred.resolve d
+                    )
+            );
+        deferred.promise
+
+    getItem = (key, storeName)->
+        deferred = $q.defer()
+        transaction = db.transaction [storeName], "readwrite"
+        OS = transaction.objectStore storeName
+        res = OS.get(key)
+        res.onsuccess = (event)->
+            deferred.resolve res.result
+
+        res.onerror = (event)->
+            deferred.reject event
+        deferred.promise
+    close = ()->
+        if setUp is true
+            db.close()
     deleteItem = (url)->
         connect().then(
           ()->
@@ -100,26 +124,23 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
         deferred = $q.defer()
         if setUp is true
             deferred.resolve true
-            console.log "already set up"
             return deferred.promise
         openRequest = window.indexedDB.open(dbToOpen, version)
         openRequest.onupgradeneeded = (event)->
-            console.log "upgrade needed"
-            thisdb = event.target.result
+            db = event.target.result
             # check for versions... or not?
             for indexName, indexData of stores
-                console.log indexName
                 if indexData.schema?
-                    obStore = thisdb.createObjectStore indexName, indexData.schema
+                    obStore = db.createObjectStore indexName, indexData.schema
                 if indexData.indexes?
                     for indexName, indexData in indexData.indexes
                         obStore.createIndex indexName, indexData[0], indexData[1]
+            deferred.resolve true
         openRequest.onblocked = (event)->
             console.log "blocked"
         openRequest.onsuccess = (event)->
             db = event.target.result
             db.onerror = (event)->
-                console.log "Error!", event
                 deferred.reject "Database error: " + event.target.errorCode
             setUp = true
             deferred.resolve true
@@ -129,6 +150,7 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
         insert:insert
         delete:deleteItem
         get:get
+        close:close
     }
 ])
 class Model
