@@ -66,7 +66,10 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
         deferred = $q.defer()
         if available() is false
             deferred.reject "indexedDB not available"
-            return deferred
+            return deferred.promise
+        if key is undefined
+            deferred.reject false
+            return deferred.promise
         if key.indexOf('/') is -1
             getItem(key,'dataStore').then(
                 (d)->
@@ -151,23 +154,27 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
                     data.$uuid = uuid   # add it to the object... just because, right?
                     data.$urlKey = urlKey
                     newData = true;
+
+                dataToSave = angular.copy data
+                for k,v of dataToSave
+                    if angular.isFunction(v) || (k.indexOf('$') is 0 && (k != '$uuid' && k != '$urlKey'))
+                        delete dataToSave[k]
                 try
                     if newData is true
                         transaction = db.transaction ['urlIndex'], "readwrite"
                                         .objectStore "urlIndex"
-                                        .add uuid, data.$urlKey
+                                        .add uuid, dataToSave.$urlKey
 
                         transaction = db.transaction ['dataStore'], "readwrite"
                                         .objectStore "dataStore"
-                                        .add data
+                                        .add dataToSave
                     else
                         transaction = db.transaction ['dataStore'], "readwrite"
                                         .objectStore "dataStore"
-                                        .put data
+                                        .put dataToSave
                 catch error
                     switch error.code
                         when 25
-                            console.log "transaction error", error
                             deferred.reject error  # object exists: clone
                         else
                             console.log "Uncaught error type", error
@@ -389,11 +396,9 @@ class ModelItemIndexDb extends ModelItem
         super
     $save: ()-> # save, set savedtodb on success
         super
-        @$promise.then (d)=>
+        @$promise.then (data)=>
             @$indexedDB.save @, @$getId()
         @
-    #$getData: ()-> # get, set savedtodb on success
-    #    super
     $isDeleted: ()->
         super
     $createUUID: ()->

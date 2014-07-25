@@ -4,7 +4,7 @@
 
 describe('service', function () {
     beforeEach(function(){
-        window.indexedDB.deleteDatabase('dhpNgModelStore');
+        // window.indexedDB.deleteDatabase('dhpNgModelStore');
         module('dhpNgModel');
         // indexedDB.close();
     });

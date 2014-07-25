@@ -5,8 +5,9 @@
 describe('service', function() {
     beforeEach(function(){
         module('dhpNgModel');
-        window.indexedDB.deleteDatabase('dhpNgModelStore');
+        // window.indexedDB.deleteDatabase('dhpNgModelStore');
     });
+
 
     describe('model', function() {
         it('should have the correct model', inject(function(model) {
@@ -32,6 +33,7 @@ describe('service', function() {
             $httpBackend.expectGET('/user/11').respond(200, {"meta":{"models":{"user":{"url":"/user/:id"}}}, "data": {"user":[{"id": 11,"name": "Henrik"}]}});
             var result = null;
             var con = false;
+            var fetched = null;
             model('user').get(11).then(function(d){
                 result = d.user;
             });
@@ -43,7 +45,21 @@ describe('service', function() {
                 $httpBackend.flush();
                 setTimeout(function(){
                     $rootScope.$apply();
-                    con = true;
+                    setTimeout(function(){
+                        $rootScope.$apply();
+                        indexedDB.get(result[0].$uuid).then(function(d){
+                            fetched = d;
+                            expect(d.$uuid).not.toBe(null)
+                            expect(d.$urlKey).not.toBe(null)
+                        });
+                        setTimeout(function(){
+                            $rootScope.$apply();
+                            setTimeout(function(){
+                                $rootScope.$apply();
+                                con = true;
+                            }, 100)
+                        }, 100)
+                    }, 100)
                 }, 100)
             })
             waitsFor(
