@@ -11,14 +11,14 @@
 ###
 
 angular.module("dhpNgModel", ['dhpNgModelConfiguration']);
-angular.module("dhpNgModel").factory("model", ['Request', '$q', (Request, $q)->
+angular.module("dhpNgModel").factory("model", ['Request', '$q', 'indexedDB',(Request, $q,indexedDB)->
     modelCache = {}
     modelFn = (model)->
         ret = null
         if modelCache[model]?
             ret = modelCache[model]
         else
-            ret = new Model(model, Request, $q)
+            ret = new Model(model, Request, $q, indexedDB)
             modelCache[model] = ret
         ret
     modelFn
@@ -30,9 +30,9 @@ angular.module("dhpNgModel").factory("modelItem", ['Request', (Request)->
     modelItemFn
 ])
 
-angular.module("dhpNgModel").factory("ModelItemIndexDb", ['Request', (Request)->
+angular.module("dhpNgModel").factory("ModelItemIndexDb", ['Request','indexedDB', (Request, indexedDB)->
     modelItemFn = (model, Request, data, config = null)->
-        new ModelItemIndexDb(model, Request, data, config)
+        new ModelItemIndexDb(model, Request, data, config, indexedDB)
     modelItemFn
 ])
 
@@ -59,27 +59,41 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
     "dataStore":
         schema:
             unique:true
+            keyPath: '$uuid'
 
     }
     get = (key)->
         deferred = $q.defer()
+        if available() is false
+            deferred.reject "indexedDB not available"
+            return deferred
         if key.indexOf('/') is -1
             getItem(key,'dataStore').then(
                 (d)->
-                    deferred.resolve d
+                    if d is undefined
+                        deferred.reject false
+                    else
+                        deferred.resolve d
+                (event)->
+                    deferred.reject event
             );
         else
             getItem(key,'urlIndex').then(
                 (d)->
                     getItem(d, 'dataStore').then(
-                      (d)->
-                          deferred.resolve d
+                        (d)->
+                            deferred.resolve d
+                        (event)->
+                            deferred.reject event
                     )
             );
         deferred.promise
 
     getItem = (key, storeName)->
         deferred = $q.defer()
+        if available() is false
+            deferred.reject "indexedDB not available"
+            return deferred
         connect().then ()->
             transaction = db.transaction [storeName], "readwrite"
             OS = transaction.objectStore storeName
@@ -94,22 +108,70 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
     close = ()->
         if setUp is true
             db.close()
-    deleteItem = (url)->
-        connect().then ()->
-            transaction = db.transaction ['urlIndex'], "readwrite"
-            transaction.objectStore('urlIndex').delete(url)
 
-    insert = (url, data)->
+    clear = ()->
+        # remove database
+        db.deleteObjectStore("ObjectStore_BookList");
+        close()
+    deleteItem = (o)->
         deferred = $q.defer()
+        connect().then ()->
+            urlTransaction = db.transaction(['urlIndex'], "readwrite")
+                                .objectStore('urlIndex')
+                                .delete(o.$urlKey)
+
+            urlTransaction.onerror = (event)->
+                deferred.reject event
+
+            urlTransaction.onsuccess = (event)->
+                dataTransaction = db.transaction(['dataStore'], "readwrite")
+                                    .objectStore('dataStore')
+                                    .delete(o.$uuid)
+
+                dataTransaction.onsuccess = (event)->
+                    deferred.resolve true
+
+                dataTransaction.onerror = (event)->
+                    console.log "Unable to erase", event
+                    deferred.reject event
+        deferred.promise
+    save = (data, urlKey = null)->
+        deferred = $q.defer()
+        newData = null
         connect().then(
             ()->
-                transaction = db.transaction ['urlIndex'], "readwrite"
-                uuid = UUID();
-                transaction.objectStore("urlIndex").add(uuid, url)
+                if !db? || !db.transaction?
+                    deferred.reject false
+                    return deferred.promise
+                if data.$uuid? && data.$urlKey?
+                    uuid = data.$uuid
+                    newData = false
+                else
+                    uuid = UUID();
+                    data.$uuid = uuid   # add it to the object... just because, right?
+                    data.$urlKey = urlKey
+                    newData = true;
+                try
+                    if newData is true
+                        transaction = db.transaction ['urlIndex'], "readwrite"
+                                        .objectStore "urlIndex"
+                                        .add uuid, data.$urlKey
 
-                transaction = db.transaction ['dataStore'], "readwrite"
-                transaction.objectStore("dataStore").add(data,uuid)
-                deferred.resolve uuid
+                        transaction = db.transaction ['dataStore'], "readwrite"
+                                        .objectStore "dataStore"
+                                        .add data
+                    else
+                        transaction = db.transaction ['dataStore'], "readwrite"
+                                        .objectStore "dataStore"
+                                        .put data
+                catch error
+                    switch error.code
+                        when 25
+                            console.log "transaction error", error
+                            deferred.reject error  # object exists: clone
+                        else
+                            console.log "Uncaught error type", error
+                deferred.resolve data
         );
         deferred.promise
     UUID = ()->
@@ -123,21 +185,19 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
         s[19] = hexDigits.substr((s[19] & 0x3) | 0x8, 1) # bits 6-7 of the clock_seq_hi_and_reserved to 01
         s[8] = s[13] = s[18] = s[23] = "-"
         s.join("");
+
     connect = ()->
         deferred = $q.defer()
         if setUp is true
             deferred.resolve true
             return deferred.promise
+        if available() is false
+            deferred.reject "indexedDB not available"
+            return deferred
         openRequest = window.indexedDB.open(dbToOpen, version)
         openRequest.onupgradeneeded = (event)->
             db = event.target.result
-            # check for versions... or not?
-            for indexName, indexData of stores
-                if indexData.schema?
-                    obStore = db.createObjectStore indexName, indexData.schema
-                if indexData.indexes?
-                    for indexName, indexData in indexData.indexes
-                        obStore.createIndex indexName, indexData[0], indexData[1]
+            upgrade()
             deferred.resolve true
         openRequest.onblocked = (event)->
             console.log "blocked"
@@ -147,17 +207,30 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
                 deferred.reject "Database error: " + event.target.errorCode
             setUp = true
             deferred.resolve true
-        deferred.resolve true
+        # deferred.resolve true
         deferred.promise
+    upgrade = ()->
+        for indexName, indexData of stores
+            if indexData.schema?
+                obStore = db.createObjectStore indexName, indexData.schema
+            if indexData.indexes?
+                for indexName, indexData in indexData.indexes
+                    obStore.createIndex indexName, indexData[0], indexData[1]
+
+    available = ()->
+        window.indexedDB?
+
     {
-    insert: insert
+    save: save
     delete: deleteItem
     get: get
     close: close
+    available: available
+    clear:clear
     }
 ])
 class Model
-    constructor: (@model, @request, @$q)->
+    constructor: (@model, @request, @$q,@indexedDB)->
     find: ()->
         "finding " + @model
     setModel: (@model)->
@@ -176,10 +249,10 @@ class Model
                     for modelName, modelData of parsedData.data
                         returnData[modelName] = []
                         for data in modelData
-                            # todo : gotta find a more eligant solution to the new Model problem
+                            # todo : gotta find a more elegant solution to the new Model problem
                             if window.indexedDB
-                                returnData[modelName].push(new ModelItemIndexDb(new Model(modelName, @request, @q),
-                                  @request, data))
+                                returnData[modelName].push(new ModelItemIndexDb(new Model(modelName, @request, @q, @indexedDB),
+                                  @request, data,null,@indexedDB))
                             else
                                 returnData[modelName].push(new ModelItem(new Model(modelName, @request, @q), @request,
                                   data))
@@ -197,7 +270,7 @@ class ModelItem
     constructor: (@$model, @$request, data = {}, @$config = {"idField": "id"})->
         @$setData data
     $delete: ()->
-        @$request.delete(@$model, @$id).then(()=>
+        @$promise = @$request.delete(@$model, @$id).then(()=>
             @$deleted = true
         )
         @
@@ -207,7 +280,7 @@ class ModelItem
     $save: ()->
         # check... if we have a idField set ? and use that as $id?
         @$checkForId()
-        @$request.post(@$model, @$id, @).then((data)=>
+        @$promise = @$request.post(@$model, @$id, @).then((data)=>
             @$setData data
         )
         @
@@ -222,6 +295,9 @@ class ModelItem
     $checkForId: ()->
         if !@$id? && @id
             @$id = @id
+    $getId: ()->
+        @$checkForId()
+        @$model.getModel() + '/' + @$id
 
 class ModelRequest
     config:
@@ -305,7 +381,7 @@ class ModelRequest
     this table connects uri to uuid. Used for looking up uri to local data and make sure we should use indexdb or not
 ###
 class ModelItemIndexDb extends ModelItem
-    constructor: ()->
+    constructor: (@$model, @$request, data = {}, @$config = {"idField": "id"}, @$indexedDB)->
         super
     $delete: ()-> # remove from indexedDb?
         super
@@ -313,6 +389,9 @@ class ModelItemIndexDb extends ModelItem
         super
     $save: ()-> # save, set savedtodb on success
         super
+        @$promise.then (d)=>
+            @$indexedDB.save @, @$getId()
+        @
     #$getData: ()-> # get, set savedtodb on success
     #    super
     $isDeleted: ()->

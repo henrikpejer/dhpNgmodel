@@ -10,7 +10,7 @@ describe('service', function () {
     });
 
     describe('indexedDB', function () {
-        it('should save the correct value', inject(function (indexedDB, $rootScope) {
+        it('should save, update and delete the correct value', inject(function (indexedDB, $rootScope) {
             var con = false;
             var o = {
                 "id": 1,
@@ -20,11 +20,18 @@ describe('service', function () {
             var uuidPost;
             var post;
             var uuid;
+            var updatedPost = "not changed";
+            var updatedo;
+            expect(indexedDB.available()).toBe(true);
             runs(function(){
                 indexedDB.close();
-                indexedDB.insert('user/1', o).then(function(d){
-                    uuid = d;
+                indexedDB.save(o,'user/1').then(function(d){
+                    uuid = d.$uuid;
+                    updatedo = o;
+                    updatedo.name = 'Updated Henrik Pejer'
+                    indexedDB.save(updatedo);
                 });
+
                 setTimeout(function(){
                     $rootScope.$apply();
                     var openRequest = window.indexedDB.open("dhpNgModelStore");
@@ -43,7 +50,10 @@ describe('service', function () {
                                 $rootScope.$apply();
                                 setTimeout(function(){
                                     $rootScope.$apply();
-                                    con = true;
+                                    setTimeout(function(){
+                                        $rootScope.$apply();
+                                        con = true;
+                                    }, 100)
                                 }, 100)
                             }, 100)
                         }, 100)
@@ -65,36 +75,49 @@ describe('service', function () {
                 expect(savedPost[0]).toBe("dataStore");
                 expect(savedPost[1]).toBe("urlIndex");
                 expect(post.id).toBe(1);
-                expect(post.name).toBe("Henrik Pejer");
+                expect(post.name).toBe("Updated Henrik Pejer");
                 expect(uuidPost.id).toBe(1);
-                expect(uuidPost.name).toBe("Henrik Pejer");
+                expect(uuidPost.name).toBe("Updated Henrik Pejer");
                 expect(uuidPost).toEqual(post);
-            })
-        }));
-        /*it('should fetch from correct store depending on key',inject(function(indexedDB, $rootScope){
-            indexedDB.get('user/1');
-            indexedDB.get('620a4517-caff-4b5a-a662-a8ef8f3a7317');
-        }));*/
-        /*it('should save the correct value', inject(function (indexedDB, $rootScope) {
-            var con = false;
-            var o = {
-                "id": 1,
-                "name": "Henrik Pejer"
-            }
-            indexedDB["delete"]('user/1');
-            runs(function(){
+                con = false;
+                indexedDB.delete(post);
                 setTimeout(function(){
                     $rootScope.$apply();
-                    con = true;
-                },1000)
-            });
+                    indexedDB.get(uuid).then(function(d){
+                            updatedPost = d;
+                        },
+                        function(){
+                            updatedPost = true
+                        }
+                    )
+                    setTimeout(function(){
+                            $rootScope.$apply();
+                            setTimeout(function(){
+                                    $rootScope.$apply();
+                                    setTimeout(function(){
+                                            $rootScope.$apply();
+                                            setTimeout(function(){
+                                                    $rootScope.$apply();
+                                                    con = true;
+                                                }
+                                                ,100);
+                                        }
+                                        ,100);
+                                }
+                                ,100);
+                        }
+                        ,100);
+                },100);
+            })
             waitsFor(
                 function(){
                     return con
                 }
-                ,"Error!!!",2000
-            );
-
-        }));*/
+                ,"Error - $rootScope.$apply didn't run properly",3000
+            )
+            runs(function(){
+                expect(updatedPost).toBe(true)
+            })
+        }));
     });
 });

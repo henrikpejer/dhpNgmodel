@@ -3,7 +3,10 @@
 /* jasmine specs for services go here */
 
 describe('service', function() {
-    beforeEach(module('dhpNgModel'));
+    beforeEach(function(){
+        module('dhpNgModel');
+        window.indexedDB.deleteDatabase('dhpNgModelStore');
+    });
 
     describe('model', function() {
         it('should have the correct model', inject(function(model) {
@@ -25,20 +28,34 @@ describe('service', function() {
             $httpBackend.flush();
             expect(result.user).toEqual("Henrik Pejer");
         }));
-        it('should make a get request without parameters when no id is supplied', inject(function(model, $http, $httpBackend) {
-            $httpBackend.expectGET('/user/1').respond(200, {"meta":{"models":{"user":{"url":"/user/:id"}}}, "data": {"user":[{"id": 1,"name": "Henrik"}]}});
+        it('should make a get request without parameters when no id is supplied', inject(function(model, $http, $httpBackend,$rootScope,indexedDB) {
+            $httpBackend.expectGET('/user/11').respond(200, {"meta":{"models":{"user":{"url":"/user/:id"}}}, "data": {"user":[{"id": 11,"name": "Henrik"}]}});
             var result = null;
-            model('user').get(1).then(function(d){
+            var con = false;
+            model('user').get(11).then(function(d){
                 result = d.user;
             });
             $httpBackend.flush();
             expect(result[0].name).toEqual('Henrik');
-            $httpBackend.expectPOST('/user/1').respond(200);
-            result[0].$save();
-            $httpBackend.flush();
+            $httpBackend.expectPOST('/user/11').respond(200);
+            runs(function(){
+                result[0].$save();
+                $httpBackend.flush();
+                setTimeout(function(){
+                    $rootScope.$apply();
+                    con = true;
+                }, 100)
+            })
+            waitsFor(
+                function(){
+                    return con
+                }
+                ,"Error - $rootScope.$apply didn't run properly",3000
+            );
+
         }));
         it('',inject(function(model, $http, $httpBackend){
-            $httpBackend.expectGET('/user/').respond(200, {"meta":{"models":{"user":{"url":"/user/:id"}}}, "data": {"user":[{"id": 1,"name": "Henrik"},{"id": 2,"name": "Magnus"}],"post":[{"id":2,"title":"First post"}]}})
+            $httpBackend.expectGET('/user/').respond(200, {"meta":{"models":{"user":{"url":"/user/:id"}}}, "data": {"user":[{"id": 12,"name": "Henrik"},{"id": 2,"name": "Magnus"}],"post":[{"id":2,"title":"First post"}]}})
             var user1, user2, post1 = null;
             model('user').get().then(function(d){
                user1 = d.user[0];
@@ -51,7 +68,7 @@ describe('service', function() {
             expect(post1.title).toEqual('First post');
 
             $httpBackend.expectPOST('/post/2').respond(200);
-            $httpBackend.expectPOST('/user/1').respond(200);
+            $httpBackend.expectPOST('/user/12').respond(200);
             $httpBackend.expectPOST('/user/2').respond(200);
             post1.$save();
             user1.$save();
@@ -61,11 +78,11 @@ describe('service', function() {
         it('should return a model-instance when new is called',inject(function(model, $http, $httpBackend){
             var g = model('user').new({"name":"Henrik Pejer"});
             expect(g.name).toEqual("Henrik Pejer");
-            $httpBackend.expectPOST('/user/').respond(200,{id:1,name: "Henrik Pejer"});
+            $httpBackend.expectPOST('/user/').respond(200,{id:111,name: "Henrik Pejer"});
             g.$save();
             $httpBackend.flush();
-            expect(g.id).toEqual(1);
-            $httpBackend.expectPOST('/user/1').respond(200,{id:1,name: "Henrik Pejer"});
+            expect(g.id).toEqual(111);
+            $httpBackend.expectPOST('/user/111').respond(200,{id:111,name: "Henrik Pejer"});
             g.$save();
             $httpBackend.flush();
             var d = model('user').new();
@@ -94,12 +111,12 @@ describe('service', function() {
             var user = model('user').new();
             expect(angular.toJson(user)).toEqual('{}');
             user.name = 'Henrik';
-            user.id=99;
-            expect(angular.toJson(user)).toEqual('{"name":"Henrik","id":99}');
-            $httpBackend.expectPOST('/user/99').respond(200,{"id":99,"name":"Henrik"});
+            user.id=199;
+            expect(angular.toJson(user)).toEqual('{"name":"Henrik","id":199}');
+            $httpBackend.expectPOST('/user/199').respond(200,{"id":199,"name":"Henrik"});
             user.$save();
             $httpBackend.flush();
-            $httpBackend.expectPOST('/user/99').respond(200,{"id":99,"name":"Henrik"});
+            $httpBackend.expectPOST('/user/199').respond(200,{"id":199,"name":"Henrik"});
             user.$save();
             $httpBackend.flush();
         }));
