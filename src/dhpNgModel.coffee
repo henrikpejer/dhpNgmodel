@@ -50,7 +50,7 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
     stores = {
     "urlIndex":
         schema:
-            autoIncrement:true
+            autoIncrement:false
         indexes:
             "url": [
                 "url",
@@ -60,6 +60,7 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
         schema:
             unique:true
             keyPath: '$uuid'
+            autoIncrement: false
 
     }
     get = (key)->
@@ -126,16 +127,22 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
             urlTransaction.onerror = (event)->
                 deferred.reject event
 
+            urlTransaction.oncomplete = (event)->
+                # console.log "COMPLETED URL", event
+
             urlTransaction.onsuccess = (event)->
+                # console.log "Deleted OK from urlIndex"
+                # console.log "Now deleting ", o.$uuid
                 dataTransaction = db.transaction(['dataStore'], "readwrite")
                                     .objectStore('dataStore')
                                     .delete(o.$uuid)
 
                 dataTransaction.onsuccess = (event)->
+                    # console.log "Deleted OK from dataStore"
                     deferred.resolve true
 
                 dataTransaction.onerror = (event)->
-                    console.log "Unable to erase", event
+                    #console.log "Unable to erase", event
                     deferred.reject event
         deferred.promise
     save = (data, urlKey = null)->
@@ -181,6 +188,13 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
                 deferred.resolve data
         );
         deferred.promise
+    prepForSave = (data)->
+        dataToSave = {}
+        for k,v of data
+            if !(angular.isFunction(v) ||(k.indexOf('$') is 0 && (k != '$uuid' && k != '$urlKey')))
+                dataToSave[k] = v
+        dataToSave
+
     UUID = ()->
         # from http://bit.ly/HkAnFi
         # http://www.ietf.org/rfc/rfc4122.txt
@@ -200,7 +214,7 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
             return deferred.promise
         if available() is false
             deferred.reject "indexedDB not available"
-            return deferred
+            return deferred.promise
         openRequest = window.indexedDB.open(dbToOpen, version)
         openRequest.onupgradeneeded = (event)->
             db = event.target.result
@@ -392,8 +406,9 @@ class ModelItemIndexDb extends ModelItem
         super
     $delete: ()-> # remove from indexedDb?
         super
-    $update: ()->   # update, set savedtodb on success
-        super
+        @$promise.then (data)=>
+            @$indexedDB.delete @
+        @
     $save: ()-> # save, set savedtodb on success
         super
         @$promise.then (data)=>
@@ -401,14 +416,3 @@ class ModelItemIndexDb extends ModelItem
         @
     $isDeleted: ()->
         super
-    $createUUID: ()->
-        # from http://bit.ly/HkAnFi
-        # http://www.ietf.org/rfc/rfc4122.txt
-        s = []
-        hexDigits = "0123456789abcdef";
-        for i in [0..35]
-            s[i] = hexDigits.substr(Math.floor(Math.random() * 0x10), 1)
-        s[14] = "4" # bits 12-15 of the time_hi_and_version field to 0010
-        s[19] = hexDigits.substr((s[19] & 0x3) | 0x8, 1) # bits 6-7 of the clock_seq_hi_and_reserved to 01
-        s[8] = s[13] = s[18] = s[23] = "-"
-        s.join("");

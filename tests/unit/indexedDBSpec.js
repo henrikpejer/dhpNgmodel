@@ -22,6 +22,9 @@ describe('service', function () {
             var uuid;
             var updatedPost = "not changed";
             var updatedo;
+            if (indexedDB.available() == false){
+                return true;
+            }
             expect(indexedDB.available()).toBe(true);
             runs(function(){
                 indexedDB.close();

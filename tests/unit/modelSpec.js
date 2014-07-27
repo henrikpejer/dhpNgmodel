@@ -47,11 +47,13 @@ describe('service', function() {
                     $rootScope.$apply();
                     setTimeout(function(){
                         $rootScope.$apply();
-                        indexedDB.get(result[0].$uuid).then(function(d){
-                            fetched = d;
-                            expect(d.$uuid).not.toBe(null)
-                            expect(d.$urlKey).not.toBe(null)
-                        });
+                        if (indexedDB.available()){
+                            indexedDB.get(result[0].$uuid).then(function(d){
+                                fetched = d;
+                                expect(d.$uuid).not.toBe(null);
+                                expect(d.$urlKey).not.toBe('usr/11');
+                            });
+                        }
                         setTimeout(function(){
                             $rootScope.$apply();
                             setTimeout(function(){

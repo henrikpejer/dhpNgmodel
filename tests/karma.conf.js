@@ -17,11 +17,12 @@ module.exports = function (config) {
 
         frameworks: ['jasmine'],
 
-        browsers: ['Chrome'],
+        browsers: ['Chrome','Safari'],
         plugins: [
             'karma-growl-reporter',
             'karma-chrome-launcher',
             'karma-firefox-launcher',
+            'karma-safari-launcher',
             'karma-jasmine',
             'karma-junit-reporter',
             'karma-coverage',
