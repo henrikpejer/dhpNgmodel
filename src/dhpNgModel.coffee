@@ -129,7 +129,6 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
 
             urlTransaction.oncomplete = (event)->
                 # console.log "COMPLETED URL", event
-
             urlTransaction.onsuccess = (event)->
                 # console.log "Deleted OK from urlIndex"
                 # console.log "Now deleting ", o.$uuid
@@ -168,17 +167,17 @@ angular.module("dhpNgModel").service("indexedDB",['$q',($q)->
                         delete dataToSave[k]
                 try
                     if newData is true
-                        transaction = db.transaction ['urlIndex'], "readwrite"
-                                        .objectStore "urlIndex"
-                                        .add uuid, dataToSave.$urlKey
+                        transaction = db.transaction(['urlIndex'], "readwrite")
+                                        .objectStore("urlIndex")
+                                        .add(uuid, dataToSave.$urlKey)
 
-                        transaction = db.transaction ['dataStore'], "readwrite"
-                                        .objectStore "dataStore"
-                                        .add dataToSave
+                        transaction = db.transaction(['dataStore'], "readwrite")
+                                        .objectStore("dataStore")
+                                        .add(dataToSave)
                     else
-                        transaction = db.transaction ['dataStore'], "readwrite"
-                                        .objectStore "dataStore"
-                                        .put dataToSave
+                        transaction = db.transaction(['dataStore'], "readwrite")
+                                        .objectStore("dataStore")
+                                        .put(dataToSave)
                 catch error
                     switch error.code
                         when 25

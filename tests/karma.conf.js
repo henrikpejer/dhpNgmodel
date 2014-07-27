@@ -17,7 +17,7 @@ module.exports = function (config) {
 
         frameworks: ['jasmine'],
 
-        browsers: ['Chrome','Safari'],
+        browsers: ['Chrome','Safari','Firefox'],
         plugins: [
             'karma-growl-reporter',
             'karma-chrome-launcher',
